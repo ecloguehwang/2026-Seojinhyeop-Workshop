@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025년 한국 M2통화량 변동 그래프</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e3f2fd 0%, #c5cae9 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+        }
+        h1 {
+            text-align: center;
+            color: #1a237e;
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 30px;
+        }
+        .chart-wrapper {
+            position: relative;
+            height: 500px;
+            margin-bottom: 30px;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 30px;
+        }
+        .info-box h3 {
+            color: #1a237e;
+            font-size: 1.4em;
+            margin-bottom: 15px;
+        }
+        .info-box ul {
+            list-style: none;
+        }
+        .info-box li {
+            color: #333;
+            margin-bottom: 10px;
+            padding-left: 20px;
+            position: relative;
+            line-height: 1.6;
+        }
+        .info-box li:before {
+            content: "•";
+            color: #2196f3;
+            font-weight: bold;
+            font-size: 1.5em;
+            position: absolute;
+            left: 0;
+        }
+        .source {
+            font-size: 0.85em;
+            color: #888;
+            margin-top: 15px;
+            line-height: 1.5;
+        }
+        .unit-label {
+            text-align: center;
+            font-weight: bold;
+            color: #1a237e;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>2025년 한국 M2통화량 변동 추이</h1>
+        <p class="subtitle">광의통화(M2) 월별 변동 현황</p>
+        <div class="unit-label">단위: 조원 (1조 = 1,000억원)</div>
+        
+        <div class="chart-wrapper">
+            <canvas id="m2Chart"></canvas>
+        </div>
+
+        <div class="info-box">
+            <h3>📊 주요 특징</h3>
+            <ul>
+                <li>2024년 12월 4,157조원에서 2025년 7월 4,371.6조원으로 증가</li>
+                <li>7개월간 약 214.6조원 증가 (약 5.2% 상승)</li>
+                <li>지속적인 상승 추세를 유지하고 있음</li>
+                <li>최근 들어 증가폭이 더욱 확대되는 모습</li>
+            </ul>
+            <p class="source">
+                * 출처: Trading Economics, 한국은행 데이터 기준<br>
+                * 4월, 5월 데이터는 공개되지 않아 표시되지 않았습니다.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('m2Chart').getContext('2d');
+        
+        const data = {
+            labels: ['2024년 12월', '2025년 1월', '2025년 2월', '2025년 3월', '2025년 6월', '2025년 7월'],
+            datasets: [{
+                label: 'M2통화량 (조원)',
+                data: [4157.0, 4189.5, 4200.4, 4225.9, 4314.7, 4371.6],
+                borderColor: '#2196f3',
+                backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                borderWidth: 3,
+                pointRadius: 6,
+                pointBackgroundColor: '#2196f3',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointHoverRadius: 8,
+                tension: 0.3,
+                fill: true
+            }]
+        };
+
+        const config = {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        padding: 12,
+                        titleFont: {
+                            size: 14,
+                            weight: 'bold'
+                        },
+                        bodyFont: {
+                            size: 13
+                        },
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                label += context.parsed.y.toLocaleString('ko-KR') + ' 조원';
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 4100,
+                        max: 4400,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('ko-KR') + '조';
+                            },
+                            font: {
+                                size: 12
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'M2통화량 (조원)',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            font: {
+                                size: 11
+                            },
+                            maxRotation: 45,
+                            minRotation: 45
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        };
+
+        const m2Chart = new Chart(ctx, config);
+    </script>
+</body>
+</html>

@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KOSPI 지수 추이</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --border: #d1d5db;
+    --accent: #0070f3;
+    --accent2: #e53e3e;
+    --accent3: #d97706;
+    --text: #111827;
+    --muted: #6b7280;
+    --grid: rgba(0,0,0,0.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 20px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -40%;
+    left: -20%;
+    width: 70%;
+    height: 80%;
+    background: none;
+    pointer-events: none;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -30%;
+    right: -10%;
+    width: 50%;
+    height: 60%;
+    background: none;
+    pointer-events: none;
+  }
+
+  .wrapper {
+    width: 100%;
+    max-width: 1100px;
+  }
+
+  .header {
+    margin-bottom: 36px;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  .title-group h1 {
+    font-size: clamp(24px, 4vw, 40px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: #111827;
+    background: none;
+    -webkit-text-fill-color: #111827;
+  }
+
+  .title-group .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 6px;
+    font-weight: 300;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .current-value {
+    text-align: right;
+  }
+
+  .current-value .index-num {
+    font-family: 'DM Mono', monospace;
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .current-value .index-label {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .period-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .btn-period {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.04em;
+  }
+
+  .btn-period:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .btn-period.active {
+    background: rgba(0,212,170,0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .chart-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px 28px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .chart-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+  }
+
+  canvas {
+    display: block;
+    width: 100% !important;
+  }
+
+  .tooltip {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 12px 16px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    backdrop-filter: blur(10px);
+    z-index: 10;
+    min-width: 140px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  }
+
+  .tooltip.visible { opacity: 1; }
+
+  .tooltip-year {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+
+  .tooltip-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  .tooltip-change {
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  .tooltip-change.up { color: var(--accent); }
+  .tooltip-change.down { color: var(--accent2); }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .stat-card {
+    background: #f9fafb;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .stat-value.up { color: var(--accent); }
+  .stat-value.down { color: var(--accent2); }
+
+  .footer-note {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 20px;
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div class="header">
+    <div class="header-top">
+      <div class="title-group">
+        <h1>KOSPI 지수</h1>
+        <div class="subtitle">Korea Composite Stock Price Index · 1980–2025</div>
+      </div>
+      <div class="current-value">
+        <div class="index-num" id="displayValue">4,214</div>
+        <div class="index-label">2025년 기준</div>
+      </div>
+    </div>
+    <div class="period-buttons">
+      <button class="btn-period" onclick="setRange('all')">전체</button>
+      <button class="btn-period" onclick="setRange('1990s')">1990년대</button>
+      <button class="btn-period" onclick="setRange('2000s')">2000년대</button>
+      <button class="btn-period" onclick="setRange('2010s')">2010년대</button>
+      <button class="btn-period" onclick="setRange('2020s')">2020년대</button>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <div class="tooltip" id="tooltip">
+      <div class="tooltip-year" id="tt-year"></div>
+      <div class="tooltip-value" id="tt-value"></div>
+      <div class="tooltip-change" id="tt-change"></div>
+    </div>
+    <canvas id="chart" height="420"></canvas>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">역대 최고</div>
+      <div class="stat-value up" id="stat-high">4,214</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">역대 최저</div>
+      <div class="stat-value down" id="stat-low">93</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">2025년 종가</div>
+      <div class="stat-value" id="stat-latest">4,214</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">1980 → 2025 수익률</div>
+      <div class="stat-value up" id="stat-return">+4,072%</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">연평균 성장률</div>
+      <div class="stat-value up" id="stat-cagr">+8.4%</div>
+    </div>
+  </div>
+
+  <div class="footer-note">※ 연도별 종가(연말 기준) 기준. 출처: 한국거래소(KRX) · 2025년 종가: 4,214.17 (전년 대비 +75.63%)</div>
+</div>
+
+<script>
+const ALL_DATA = [
+  {year:1980, value:101},  {year:1981, value:131},  {year:1982, value:128},
+  {year:1983, value:160},  {year:1984, value:142},  {year:1985, value:163},
+  {year:1986, value:272},  {year:1987, value:526},  {year:1988, value:907},
+  {year:1989, value:909},  {year:1990, value:696},  {year:1991, value:610},
+  {year:1992, value:678},  {year:1993, value:866},  {year:1994, value:1027},
+  {year:1995, value:882},  {year:1996, value:651},  {year:1997, value:376},
+  {year:1998, value:563},  {year:1999, value:1028}, {year:2000, value:505},
+  {year:2001, value:694},  {year:2002, value:628},  {year:2003, value:811},
+  {year:2004, value:896},  {year:2005, value:1379}, {year:2006, value:1434},
+  {year:2007, value:1897}, {year:2008, value:1124}, {year:2009, value:1683},
+  {year:2010, value:2051}, {year:2011, value:1826}, {year:2012, value:1997},
+  {year:2013, value:2011}, {year:2014, value:1916}, {year:2015, value:1961},
+  {year:2016, value:2026}, {year:2017, value:2467}, {year:2018, value:2041},
+  {year:2019, value:2197}, {year:2020, value:2873}, {year:2021, value:2978},
+  {year:2022, value:2236}, {year:2023, value:2655}, {year:2024, value:2399},
+  {year:2025, value:4214}
+];
+
+const RANGES = {
+  all:   [1980, 2025],
+  '1990s': [1990, 1999],
+  '2000s': [2000, 2009],
+  '2010s': [2010, 2019],
+  '2020s': [2020, 2025],
+};
+
+// Key events
+const EVENTS = [
+  {year:1987, label:'3저호황', side:'top'},
+  {year:1997, label:'IMF 외환위기', side:'bottom'},
+  {year:2008, label:'글로벌 금융위기', side:'bottom'},
+  {year:2020, label:'COVID-19', side:'bottom'},
+  {year:2025, label:'역대 최고 +75.6%', side:'top'},
+];
+
+let currentRange = 'all';
+let filteredData = ALL_DATA;
+
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+let dpr = window.devicePixelRatio || 1;
+let animProgress = 0;
+let animFrame;
+let hoveredIdx = -1;
+
+function filterData(range) {
+  const [from, to] = RANGES[range];
+  return ALL_DATA.filter(d => d.year >= from && d.year <= to);
+}
+
+function setRange(range) {
+  currentRange = range;
+  document.querySelectorAll('.btn-period').forEach(b => b.classList.remove('active'));
+  const btns = document.querySelectorAll('.btn-period');
+  const idx = Object.keys(RANGES).indexOf(range);
+  if(btns[idx]) btns[idx].classList.add('active');
+  filteredData = filterData(range);
+  updateStats(filteredData);
+  cancelAnimationFrame(animFrame);
+  animProgress = 0;
+  animate();
+}
+
+function updateStats(data) {
+  const vals = data.map(d=>d.value);
+  const high = Math.max(...vals);
+  const low  = Math.min(...vals);
+  const latest = data[data.length-1].value;
+  const first  = data[0].value;
+  const ret = ((latest - first) / first * 100).toFixed(1);
+  const years = data[data.length-1].year - data[0].year;
+  const cagr = years > 0 ? (Math.pow(latest/first, 1/years)-1)*100 : 0;
+
+  document.getElementById('stat-high').textContent = high.toLocaleString();
+  document.getElementById('stat-low').textContent = low.toLocaleString();
+  document.getElementById('stat-latest').textContent = latest.toLocaleString();
+  document.getElementById('stat-return').textContent = (ret >= 0 ? '+':'') + ret + '%';
+  document.getElementById('stat-return').className = 'stat-value ' + (ret>=0?'up':'down');
+  document.getElementById('stat-cagr').textContent = (cagr >= 0 ? '+':'') + cagr.toFixed(1) + '%';
+  document.getElementById('stat-cagr').className = 'stat-value ' + (cagr>=0?'up':'down');
+  document.getElementById('displayValue').textContent = latest.toLocaleString();
+}
+
+function getChartDims() {
+  const W = canvas.parentElement.clientWidth - 56;
+  const H = 420;
+  const pad = {top:40, right:20, bottom:50, left:88};
+  return {W, H, pad};
+}
+
+function resizeCanvas() {
+  const {W, H} = getChartDims();
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+}
+
+function drawChart(progress) {
+  const {W, H, pad} = getChartDims();
+  ctx.clearRect(0, 0, W, H);
+
+  const data = filteredData;
+  if(!data.length) return;
+
+  const vals  = data.map(d => d.value);
+  const years = data.map(d => d.year);
+  const minV  = 0;
+  const maxV  = Math.max(...vals) * 1.12;
+
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top  - pad.bottom;
+
+  const xScale = (i) => pad.left + (i / (data.length - 1)) * plotW;
+  const yScale = (v) => pad.top + plotH - ((v - minV) / (maxV - minV)) * plotH;
+
+  // Grid lines
+  const yTicks = 5;
+  for(let i = 0; i <= yTicks; i++) {
+    const v = minV + (maxV - minV) * (i / yTicks);
+    const y = yScale(v);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(W - pad.right, y);
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#374151';
+    ctx.font = '11px DM Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(v).toLocaleString(), pad.left - 8, y + 4);
+  }
+
+  // X axis labels
+  const labelStep = data.length <= 10 ? 1 : data.length <= 20 ? 2 : 4;
+  ctx.fillStyle = '#374151';
+  ctx.font = '11px DM Mono, monospace';
+  ctx.textAlign = 'center';
+  data.forEach((d, i) => {
+    if(i % labelStep !== 0 && i !== data.length-1) return;
+    const x = xScale(i);
+    ctx.fillText(d.year, x, H - pad.bottom + 18);
+    ctx.beginPath();
+    ctx.moveTo(x, H - pad.bottom);
+    ctx.lineTo(x, H - pad.bottom + 5);
+    ctx.strokeStyle = '#9ca3af';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Axis baseline
+  ctx.beginPath();
+  ctx.moveTo(pad.left, H - pad.bottom);
+  ctx.lineTo(W - pad.right, H - pad.bottom);
+  ctx.strokeStyle = '#d1d5db';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Area gradient fill (animated)
+  const pts = data.slice(0, Math.ceil(progress * data.length));
+  if(pts.length >= 2) {
+    const grad = ctx.createLinearGradient(0, pad.top, 0, H - pad.bottom);
+    grad.addColorStop(0, 'rgba(0,112,243,0.18)');
+    grad.addColorStop(0.6, 'rgba(0,112,243,0.05)');
+    grad.addColorStop(1, 'rgba(0,112,243,0)');
+
+    ctx.beginPath();
+    ctx.moveTo(xScale(0), H - pad.bottom);
+    pts.forEach((d, i) => ctx.lineTo(xScale(i), yScale(d.value)));
+    ctx.lineTo(xScale(pts.length - 1), H - pad.bottom);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    pts.forEach((d, i) => {
+      const x = xScale(i), y = yScale(d.value);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = '#0070f3';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = 'rgba(0,112,243,0.3)';
+    ctx.shadowBlur = 6;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // Event markers
+  if(currentRange === 'all' && progress > 0.5) {
+    EVENTS.forEach(ev => {
+      const didx = data.findIndex(d => d.year === ev.year);
+      if(didx < 0) return;
+      const x = xScale(didx);
+      const y = yScale(data[didx].value);
+
+      ctx.beginPath();
+      ctx.moveTo(x, y - 6);
+      ctx.lineTo(x, H - pad.bottom);
+      ctx.strokeStyle = 'rgba(180,120,0,0.3)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const boxH = 20, boxPad = 6;
+      ctx.font = '500 10px Noto Sans KR, sans-serif';
+      const tw = ctx.measureText(ev.label).width;
+      const bx = Math.min(Math.max(x - tw/2 - boxPad, pad.left), W - pad.right - tw - boxPad*2);
+      const by = ev.side === 'top' ? y - 36 : H - pad.bottom - 42;
+
+      ctx.fillStyle = 'rgba(217,119,6,0.1)';
+      roundRect(ctx, bx, by, tw + boxPad*2, boxH, 3);
+      ctx.fill();
+
+      ctx.fillStyle = '#b45309';
+      ctx.textAlign = 'left';
+      ctx.fillText(ev.label, bx + boxPad, by + 13.5);
+    });
+  }
+
+  // Dots for each data point when data < 30
+  if(data.length <= 30 && progress >= 1) {
+    data.forEach((d, i) => {
+      const x = xScale(i), y = yScale(d.value);
+      const isHovered = i === hoveredIdx;
+      ctx.beginPath();
+      ctx.arc(x, y, isHovered ? 5.5 : 3, 0, Math.PI*2);
+      ctx.fillStyle = isHovered ? '#0070f3' : '#3b82f6';
+      ctx.shadowColor = isHovered ? 'rgba(0,112,243,0.4)' : 'transparent';
+      ctx.shadowBlur = isHovered ? 10 : 0;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+  }
+
+  // Hover crosshair
+  if(hoveredIdx >= 0 && progress >= 1) {
+    const x = xScale(hoveredIdx);
+    const y = yScale(data[hoveredIdx].value);
+    ctx.beginPath();
+    ctx.moveTo(x, pad.top);
+    ctx.lineTo(x, H - pad.bottom);
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function easeInOut(t) {
+  return t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+}
+
+function animate() {
+  animProgress = Math.min(animProgress + 0.025, 1);
+  drawChart(easeInOut(animProgress));
+  if(animProgress < 1) animFrame = requestAnimationFrame(animate);
+}
+
+// Mouse interaction
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const {W, H, pad} = getChartDims();
+  const plotW = W - pad.left - pad.right;
+  const data = filteredData;
+
+  const relX = mx - pad.left;
+  const step = plotW / (data.length - 1);
+  let idx = Math.round(relX / step);
+  idx = Math.max(0, Math.min(data.length - 1, idx));
+
+  if(hoveredIdx !== idx) {
+    hoveredIdx = idx;
+    drawChart(1);
+  }
+
+  const d = data[idx];
+  const prev = data[idx-1];
+  const xScale = (i) => pad.left + (i / (data.length - 1)) * plotW;
+  const cx = xScale(idx);
+
+  const tt = document.getElementById('tooltip');
+  const ttYear  = document.getElementById('tt-year');
+  const ttVal   = document.getElementById('tt-value');
+  const ttChg   = document.getElementById('tt-change');
+  const cRect   = canvas.getBoundingClientRect();
+
+  ttYear.textContent  = d.year + '년';
+  ttVal.textContent   = d.value.toLocaleString();
+
+  if(prev) {
+    const diff = d.value - prev.value;
+    const pct  = (diff / prev.value * 100).toFixed(1);
+    ttChg.textContent = (diff >= 0 ? '▲ +' : '▼ ') + diff.toLocaleString() + ' (' + (diff>=0?'+':'') + pct + '%)';
+    ttChg.className = 'tooltip-change ' + (diff>=0?'up':'down');
+  } else {
+    ttChg.textContent = '시작 기준';
+    ttChg.className = 'tooltip-change';
+  }
+
+  const container = canvas.parentElement;
+  const contRect  = container.getBoundingClientRect();
+  let tx = cx + 20;
+  if(tx + 150 > W) tx = cx - 165;
+  tt.style.left = tx + 'px';
+  tt.style.top  = (e.clientY - contRect.top - 30) + 'px';
+  tt.classList.add('visible');
+});
+
+canvas.addEventListener('mouseleave', () => {
+  hoveredIdx = -1;
+  drawChart(1);
+  document.getElementById('tooltip').classList.remove('visible');
+});
+
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  drawChart(1);
+});
+
+// Init
+document.querySelectorAll('.btn-period')[0].classList.add('active');
+updateStats(ALL_DATA);
+resizeCanvas();
+animate();
+</script>
+</body>
+</html>
